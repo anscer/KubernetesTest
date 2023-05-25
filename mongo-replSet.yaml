@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-replset
+spec:
+  template:
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:6.0
+        volumeMounts:
+          - name: setup-script
+            mountPath: /initiate/setup.sh
+            subPath: setup.sh
+        env:
+        - name: MONGODB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGO_USER
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGO_PASS
+        - name: MONGODB_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_ADMIN_USER
+        - name: MONGODB_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_ADMIN_PASSWORD
+        - name: MONGODB_ADMIN_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_ADMIN_EMAIL
+        - name: MONGODB_ADMIN_ROLE
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_ADMIN_ROLE
+        - name: MONGODB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_DATABASE
+        - name: MONGODB_REPLICASET_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGODB_REPLICASET_NAME
+        command: ["/bin/sh", "-c", "cp /initiate/setup.sh /tmp/ && chmod +x /tmp/setup.sh && /tmp/setup.sh"]
+      restartPolicy: Never
+      volumes:
+        - name: setup-script
+          configMap:
+            name: mongo-config
+            

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: client
+          image: guptaashwanee/anya-client:latest
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 80
+          env:
+            - name: SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: client-config
+                  key: SERVER
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: server-secret
+                  key: PORT

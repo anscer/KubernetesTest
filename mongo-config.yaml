@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-config
+data:
+  MONGO_URI: mongo
+  mongo-config.yaml: |-
+    storage:
+      dbPath: /data/db
+    net:
+      bindIp: 0.0.0.0
+      port: 27017
+    security:
+      authorization: enabled
+      keyFile: /etc/mongo/mongo-keyfile
+  setup1.sh: |
+    #!/bin/bash
+    initiated=0
+    replica_exists=false
+    while [ "$replica_exists" != true ]
+    do
+      # Need to check to make sure that the other pods are currently up
+      initiated=`mongosh --host mongo-0.mongodb-service --quiet --eval 'rs.initiate({_id: "anya-rs", version: 1, members: [
+          { _id: 0, host : "mongo-0.mongodb-service:27017" },
+          { _id: 1, host : "mongo-1.mongodb-service:27017" },
+          { _id: 2, host : "mongo-2.mongodb-service:27017" }
+        ]})["ok"]'`;
+      replica_exists=`mongosh --host mongo-0.mongodb-service --quiet --eval 'db.isMaster()["ismaster"]'`;
+        # Shit we need to check rs status i think instead
+      echo "Replica exists: " $replica_exists;
+      sleep 2
+    done
+    # If everything else is workign then we need to create an admin user
+    mongosh --host mongo-0.mongodb-service <<EOF
+      use admin;
+      admin = db.getSiblingDB("admin");
+      admin.createUser(
+      {
+        user: "${MONGODB_USER}",
+        pwd: "${MONGODB_PASSWORD}",
+        roles: [ { role: "root", db: "admin" } ]
+      });
+      use ${MONGODB_DATABASE};
+      db.users.insertOne({ "name": "${MONGODB_ADMIN_USER}", "password": "${MONGODB_ADMIN_PASSWORD}", "email": "${MONGODB_ADMIN_EMAIL}", "role": "${MONGODB_ADMIN_ROLE}" });
+    EOF
+  setup.sh: |
+    #!/bin/bash
+
+    MONGODB0=mongo-0.mongodb-service
+    MONGODB1=mongo-1.mongodb-service
+    MONGODB2=mongo-2.mongodb-service
+
+    echo "**********************************************" ${MONGODB0}
+    echo "Waiting for startup.."
+    sleep 5
+    echo "done"
+
+    mongosh --host ${MONGODB0} <<EOF
+      
+      var cfg = {
+            "_id" : "${MONGODB_REPLICASET_NAME}",
+            "version": 1,
+            "members": [
+                {
+                    "_id": 0,
+                    "host" : "${MONGODB0}:27017",
+                    "priority": 3
+                },
+                {
+                    "_id": 1,
+                    "host" : "${MONGODB1}:27017",
+                    "priority": 1
+                },
+                {
+                    "_id": 2,
+                    "host" : "${MONGODB2}:27017",
+                    "priority": 2
+                }
+            ]
+        };
+        rs.initiate(cfg, { force: true });
+        db.getMongo().setReadPref('primaryPreferred');
+        rs.status();
+    EOF
+    sleep 10
+
+    mongosh --host ${MONGODB0},${MONGODB1},${MONGODB2} <<EOF
+        use admin;
+        admin = db.getSiblingDB("admin");
+        admin.createUser(
+        {
+          user: "${MONGODB_USER}",
+            pwd: "${MONGODB_PASSWORD}",
+            roles: [ { role: "root", db: "admin" } ]
+        });
+        db.getSiblingDB("admin").auth( "${MONGODB_USER}", "${MONGODB_PASSWORD}" );
+        use ${MONGODB_DATABASE};
+        db.users.insertOne({ "name": "${MONGODB_ADMIN_USER}", "password": "${MONGODB_ADMIN_PASSWORD}", "email": "${MONGODB_ADMIN_EMAIL}", "role": "${MONGODB_ADMIN_ROLE}" });
+    EOF
+

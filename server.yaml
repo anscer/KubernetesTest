@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  labels:
+    app: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      imagePullSecrets:
+      - name: docker-secret
+      containers:
+        - name: server
+          image: guptaashwanee/anya-server:latest
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 5000
+          env:
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: server-secret
+                  key: JWT_PRIVATE_KEY
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: server-secret
+                  key: PORT
+            - name: ROSBRIDGE_WEBSOCKET_URL
+              valueFrom:
+                secretKeyRef:
+                  name: server-secret
+                  key: ROSBRIDGE_WEBSOCKET_URL
+            - name: MONGO_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: server-config
+                  key: MONGO_URI
