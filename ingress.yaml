@@ -5,14 +5,18 @@ kind: Ingress
 metadata:
   name: ingress
   namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   tls:
   - hosts:
-    - anscer.org
+    - robot.anscer.com
     secretName: tls-secret
   ingressClassName: nginx
   rules:
-  - host: anscer.org
+  - host: robot.anscer.com
     http:
       paths:
       - path: /
